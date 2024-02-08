@@ -1,0 +1,121 @@
+NAME: shop-product
+LAST DEPLOYED: Mon Feb  5 10:20:07 2024
+NAMESPACE: s6arsene
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+HOOKS:
+MANIFEST:
+---
+# Source: espresso-shop-web/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: s6arsene-espresso-shop-product
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+     app: s6arsene-espresso-shop-product
+---
+# Source: espresso-shop-web/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: s6arsene-espresso-shop-product
+  labels:
+    app: s6arsene-espresso-shop-product
+---
+# Source: espresso-shop-web/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: espresso-shop-product-catalog-svc
+  labels:
+    app: s6arsene-espresso-shop-product
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8091
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: s6arsene-espresso-shop-product
+    version: v1
+---
+# Source: espresso-shop-web/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s6arsene-espresso-shop-product
+  labels:
+    app: s6arsene-espresso-shop-product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s6arsene-espresso-shop-product
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: s6arsene-espresso-shop-product
+        version: v1
+    spec:
+      serviceAccountName: shop-product-espresso-shop-web
+      securityContext:
+        {}
+      containers:
+        - name: espresso-shop-web
+          securityContext:
+            {}
+          image: hossambarakat/espresso-shop-product catalog
+          
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+         #livenessProbe:
+         #  httpGet:
+         #    path: /
+         #    port: http
+         #readinessProbe:
+         #  httpGet:
+         #    path: /
+         #    port: http
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: espresso-shop-web/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: s6arsene-espresso-shop-product
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: s6arsene-espresso-shop-product
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace s6arsene -l "app.kubernetes.io/name=espresso-shop-web,app.kubernetes.io/instance=shop-product" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace s6arsene $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace s6arsene port-forward $POD_NAME 8080:$CONTAINER_PORT

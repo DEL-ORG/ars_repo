@@ -1,0 +1,218 @@
+NAME: reviews
+LAST DEPLOYED: Mon Feb  5 11:11:47 2024
+NAMESPACE: s6arsene
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+HOOKS:
+MANIFEST:
+---
+# Source: espresso-shop-web/templates/pdbv1.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: s6arsene-espresso-shop-review-v1
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+     app: s6arsene-espresso-shop-review
+---
+# Source: espresso-shop-web/templates/pdbv2.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: s6arsene-espresso-shop-review-v2
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+     app: s6arsene-espresso-shop-review
+---
+# Source: espresso-shop-web/templates/serviceaccountv1.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: s6arsene-espresso-shop-review-v1
+  labels:
+    app: s6arsene-espresso-shop-review
+---
+# Source: espresso-shop-web/templates/serviceaccountv2.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: s6arsene-espresso-shop-review-v2
+  labels:
+    app: s6arsene-espresso-shop-review
+---
+# Source: espresso-shop-web/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: espresso-shop-reviews-svc
+  
+  labels:
+    app: s6arsene-espresso-shop-review
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8092
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: s6arsene-espresso-shop-review
+    version: v1
+    versionv2: v2
+---
+# Source: espresso-shop-web/templates/deploymentv1.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s6arsene-espresso-shop-review-v1
+  labels:
+    app: s6arsene-espresso-shop-review
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s6arsene-espresso-shop-review
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: s6arsene-espresso-shop-review
+        version: v1
+    spec:
+      serviceAccountName: reviews-espresso-shop-web
+      securityContext:
+        {}
+      containers:
+        - name: espresso-shop-web
+          securityContext:
+            {}
+          image: hossambarakat/espresso-shop-review
+          
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_VERSION
+              value: "v1"
+    
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+         #livenessProbe:
+         #  httpGet:
+         #    path: /
+         #    port: http
+         #readinessProbe:
+         #  httpGet:
+         #    path: /
+         #    port: http
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: espresso-shop-web/templates/deploymentv2.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s6arsene-espresso-shop-review-v2
+  labels:
+    app: s6arsene-espresso-shop-review
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s6arsene-espresso-shop-review
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: s6arsene-espresso-shop-review
+        version: v2
+    spec:
+      serviceAccountName: reviews-espresso-shop-web
+      securityContext:
+        {}
+      containers:
+        - name: espresso-shop-web
+          securityContext:
+            {}
+          image: hossambarakat/espresso-shop-review
+          
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_VERSION
+              value: "v2"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+         #livenessProbe:
+         #  httpGet:
+         #    path: /
+         #    port: http
+         #readinessProbe:
+         #  httpGet:
+         #    path: /
+         #    port: http
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: espresso-shop-web/templates/hpav1.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: s6arsene-espresso-shop-review-v1
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: s6arsene-espresso-shop-review
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+---
+# Source: espresso-shop-web/templates/hpav2.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: s6arsene-espresso-shop-review-v2
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: s6arsene-espresso-shop-review
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace s6arsene -l "app.kubernetes.io/name=espresso-shop-web,app.kubernetes.io/instance=reviews" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace s6arsene $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace s6arsene port-forward $POD_NAME 8080:$CONTAINER_PORT
